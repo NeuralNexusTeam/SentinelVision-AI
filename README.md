@@ -1,8 +1,12 @@
-# SentinelVision AI: Real-Time Face and Eye Monitoring System (C++)
+# SentinelVision AI: Real-Time Face and Eye Monitoring System
 
-SentinelVision AI is a commercial-grade, high-performance C++ intelligent computer vision and real-time safety monitoring system designed for laptops and desktop workstations. It continuously monitors user alertness, eye state, and presence through the laptop's built-in webcam.
+[![Live Demo](https://img.shields.io/badge/Live_Demo-sentinelvisionlive.netlify.app-00C7B7?style=for-the-badge&logo=netlify&logoColor=white)](https://sentinelvisionlive.netlify.app)
+[![C++](https://img.shields.io/badge/Engine-C%2B%2B17-blue.svg?style=for-the-badge&logo=c%2B%2B)](https://github.com/NeuralNexusTeam/SentinelVision-AI)
+[![Status](https://img.shields.io/badge/Deployment-Live-success?style=for-the-badge)](https://sentinelvisionlive.netlify.app)
 
-Built entirely in **modern C++** with native Windows WinSock2 networking, Win32 multimedia sound, high-speed circular buffers, and an interactive dark-themed dashboard.
+> 🌐 **Live Production Deployment**: **[https://sentinelvisionlive.netlify.app](https://sentinelvisionlive.netlify.app)**
+> 
+> *SentinelVision AI is a commercial-grade, high-performance intelligent computer vision and real-time safety monitoring system. It continuously monitors user alertness, eye state, and presence in real-time through any standard webcam.*
 
 ---
 
@@ -12,15 +16,15 @@ Built entirely in **modern C++** with native Windows WinSock2 networking, Win32 
 - **Eye Aspect Ratio (EAR) Algorithm**: Computes exact Euclidean eye aspect ratios from eyelid landmarks:
   $$\text{EAR} = \frac{\|P_2 - P_6\| + \|P_3 - P_5\|}{2 \cdot \|P_1 - P_4\|}$$
 - **Natural Blink Discrimination**: Differentiates natural human blinks ($<0.4\text{s}$) from prolonged eye closures, incrementing the natural blink counter without triggering false alarms.
-- **Prolonged Eye Closure Alarm**: Triggers an immediate audible siren and visual warning when eyes remain closed beyond the configurable threshold (default: $2.0\text{s}$).
+- **Prolonged Eye Closure Alarm**: Triggers an immediate audible siren and visual warning when eyes remain closed beyond the threshold (default: $1.0\text{s}$).
 
 ### 👤 Face Occlusion & Covering Detection
-- **Hand & Object Covering Detection**: Detects when a subject covers their face using their hands, clothing, or objects.
-- **Occlusion Alert**: Triggers an alert when the face remains obstructed beyond the timeout (default: $1.5\text{s}$).
+- **Hand & Object Covering Detection**: Detects when a subject covers their face or camera using their hands, clothing, or objects.
+- **Occlusion Alert**: Triggers an immediate alert when the face/eyes remain obstructed beyond the timeout (default: $1.0\text{s}$).
 
 ### 🚶 Person Absence Detection
 - **Continuous Presence Verification**: Tracks whether an active subject is present in the webcam frame.
-- **Departure Timeout Trigger**: Activates warning sirens and logs an incident if the user vacates the workstation (default: $2.5\text{s}$).
+- **Departure Timeout Trigger**: Activates warning sirens and logs an incident if the user vacates the workstation (default: $1.0\text{s}$).
 
 ### 🚨 Audible Alarm System
 - **Win32 Multimedia Audio (`PlaySoundA` / `Beep`)**: Hardware-accelerated local audio alarm playback with fallback.
