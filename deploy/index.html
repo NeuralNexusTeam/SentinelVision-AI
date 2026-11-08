@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentinelVision AI | Real-Time Face & Eye Monitoring System</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="./static/css/dashboard.css">
+    <!-- MediaPipe FaceMesh Browser Scripts (Optional High-Precision Neural Acceleration) -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+</head>
+<body class="dark-theme">
+    <!-- Alarm Overlay Strobe (Flashes when alarm triggers) -->
+    <div id="alarmStrobe" class="alarm-strobe hidden"></div>
+
+    <!-- Main Container -->
+    <div class="app-layout">
+        <!-- Top Navigation Bar -->
+        <header class="top-nav">
+            <div class="nav-brand">
+                <div class="brand-icon">
+                    <i class="fa-solid fa-eye-low-vision"></i>
+                </div>
+                <div class="brand-text">
+                    <h1>SentinelVision <span>AI</span></h1>
+                    <p class="brand-subtitle">Smart Computer Vision & Attentiveness Monitor</p>
+                </div>
+            </div>
+
+            <div class="nav-center">
+                <div class="status-pill" id="globalStatusPill">
+                    <span class="status-dot standby"></span>
+                    <span id="globalStatusText">SYSTEM STANDBY</span>
+                </div>
+                <div class="timer-pill">
+                    <i class="fa-regular fa-clock"></i>
+                    <span id="sessionTimer">00:00:00</span>
+                </div>
+            </div>
+
+            <div class="nav-actions">
+                <button id="btnTestAlarm" class="btn btn-secondary" title="Test Audio Alarm">
+                    <i class="fa-solid fa-bell"></i>
+                    <span>Test Alarm</span>
+                </button>
+                <button id="btnMuteToggle" class="btn btn-secondary" title="Mute Audio">
+                    <i class="fa-solid fa-volume-high" id="muteIcon"></i>
+                </button>
+                <button id="btnOpenSettings" class="btn btn-secondary" title="System Settings">
+                    <i class="fa-solid fa-sliders"></i>
+                    <span>Settings</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Critical Alert Banner -->
+        <div id="criticalAlertBanner" class="alert-banner hidden">
+            <div class="alert-content">
+                <i class="fa-solid fa-triangle-exclamation alert-icon"></i>
+                <div class="alert-text">
+                    <h3 id="alertTitle">WARNING DETECTED</h3>
+                    <p id="alertMessage">Abnormal condition detected by vision system.</p>
+                </div>
+            </div>
+            <button id="btnDismissAlert" class="btn-dismiss">&times;</button>
+        </div>
+
+        <!-- Main Dashboard Grid -->
+        <main class="dashboard-content">
+            <!-- Left Column: Video Feed & Primary Controls -->
+            <section class="viewport-card">
+                <div class="card-header">
+                    <div class="card-title">
+                        <i class="fa-solid fa-video"></i>
+                        <span>Live Camera Feed</span>
+                        <span class="live-indicator"><span class="pulse"></span> LIVE</span>
+                    </div>
+                    <div class="feed-telemetry">
+                        <select id="cameraSelect" class="camera-select" title="Select Video Input Device">
+                            <option value="default">Default Camera</option>
+                        </select>
+                        <button id="btnSwitchCamGuide" class="badge" title="Webcam Setup & Device Picker" style="cursor:pointer; background:rgba(6,182,212,0.15); border-color:rgba(6,182,212,0.4); color:var(--color-cyan);">
+                            <i class="fa-solid fa-camera-rotate"></i> Change Cam
+                        </button>
+                        <span class="badge" id="fpsBadge"><i class="fa-solid fa-gauge-high"></i> 0.0 FPS</span>
+                        <span class="badge" id="resBadge"><i class="fa-solid fa-expand"></i> 1280x720</span>
+                    </div>
+                </div>
+
+                <div class="video-container" id="videoContainer">
+                    <img id="webcamStream" src="/video_feed" alt="Webcam Stream" class="video-feed" onerror="handleStreamError(this)">
+                    <video id="localWebcamVideo" autoplay playsinline muted class="video-feed hidden"></video>
+                    <canvas id="hudCanvas" class="video-feed hidden" style="position:absolute;inset:0;pointer-events:none;"></canvas>
+                    
+                    <!-- Camera Connection & Iriun Troubleshooting Overlay -->
+                    <div id="cameraSetupOverlay" class="camera-setup-overlay hidden">
+                        <div class="camera-setup-card">
+                            <div class="camera-setup-badge">
+                                <i class="fa-solid fa-video-slash"></i> Camera Setup
+                            </div>
+                            <h3 id="cameraSetupTitle">Webcam Input Not Connected</h3>
+                            <p id="cameraSetupDesc">Connect your Iriun Webcam or select your camera device below.</p>
+                            
+                            <div class="camera-setup-controls">
+                                <select id="cameraSetupDropdown" class="camera-dropdown-large">
+                                    <option value="default">Iriun Webcam (Default)</option>
+                                </select>
+                                <button id="btnConnectCamera" class="btn btn-primary-glow">
+                                    <i class="fa-solid fa-bolt"></i> Connect
+                                </button>
+                            </div>
+
+                            <div class="iriun-troubleshooting-box">
+                                <div class="iriun-box-header">
+                                    <i class="fa-solid fa-mobile-screen"></i> <strong>How to connect Iriun Webcam:</strong>
+                                </div>
+                                <ol class="iriun-steps">
+                                    <li>Open <b>Iriun Webcam app</b> on your mobile phone.</li>
+                                    <li>Ensure phone & laptop are on the <b>same Wi-Fi</b> (or connected via USB cable).</li>
+                                    <li>Confirm your phone camera appears inside the <b>Iriun PC window</b>.</li>
+                                    <li>Click <b>"Connect"</b> above and choose <b>"Allow"</b> when prompted by your browser.</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="feed-overlay">
+                        <div class="hud-corner top-left"></div>
+                        <div class="hud-corner top-right"></div>
+                        <div class="hud-corner bottom-left"></div>
+                        <div class="hud-corner bottom-right"></div>
+                        
+                        <!-- Floating Reticle Overlay -->
+                        <div class="hud-target-indicator" id="targetIndicator">
+                            <span class="hud-tag" id="hudFaceTag">EYES SEARCHING...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Primary Control Bar -->
+                <div class="controls-panel">
+                    <button id="btnStartMonitoring" class="btn btn-start">
+                        <i class="fa-solid fa-play"></i>
+                        <span>Start Monitoring</span>
+                    </button>
+                    <button id="btnStopMonitoring" class="btn btn-stop" disabled>
+                        <i class="fa-solid fa-stop"></i>
+                        <span>Stop Monitoring</span>
+                    </button>
+                    <div class="control-status-indicator">
+                        <span class="label">Monitor Engine:</span>
+                        <strong id="engineStateLabel" class="state-inactive">STANDBY</strong>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Column: Real-Time Telemetry & Status Gauges -->
+            <section class="telemetry-column">
+                <!-- Status Matrix Grid -->
+                <div class="status-grid">
+                    <!-- Eye Status Card -->
+                    <div class="status-card" id="eyeStatusCard">
+                        <div class="status-card-header">
+                            <span class="status-label">Eye State</span>
+                            <i class="fa-solid fa-eye status-icon"></i>
+                        </div>
+                        <div class="status-main-val" id="eyeStatusVal">OPEN</div>
+                        <div class="status-sub">
+                            <span id="eyeDurationTag">Duration: 0.0s</span>
+                        </div>
+                        <!-- EAR Gauge Bar -->
+                        <div class="gauge-container">
+                            <div class="gauge-labels">
+                                <span>Eye Aspect Ratio (EAR)</span>
+                                <strong id="earValueText">0.000</strong>
+                            </div>
+                            <div class="gauge-track">
+                                <div class="gauge-fill" id="earGaugeFill" style="width: 50%;"></div>
+                                <div class="gauge-threshold-marker" id="earThresholdMarker" title="Threshold"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Face Status Card -->
+                    <div class="status-card" id="faceStatusCard">
+                        <div class="status-card-header">
+                            <span class="status-label">Face State</span>
+                            <i class="fa-solid fa-user status-icon"></i>
+                        </div>
+                        <div class="status-main-val" id="faceStatusVal">DETECTED</div>
+                        <div class="status-sub">
+                            <span id="faceDurationTag">Duration: 0.0s</span>
+                        </div>
+                        <div class="card-footer-info">
+                            <span class="badge" id="faceStateBadge"><i class="fa-solid fa-check"></i> Normal View</span>
+                        </div>
+                    </div>
+
+                    <!-- Alarm Status Card -->
+                    <div class="status-card" id="alarmStatusCard">
+                        <div class="status-card-header">
+                            <span class="status-label">Alarm System</span>
+                            <i class="fa-solid fa-shield-halved status-icon"></i>
+                        </div>
+                        <div class="status-main-val" id="alarmStatusVal">NORMAL</div>
+                        <div class="status-sub">
+                            <span id="audioStatusTag">Audio Alert: Armed</span>
+                        </div>
+                        <div class="card-footer-info">
+                            <span class="badge" id="alarmStateBadge"><i class="fa-solid fa-lock"></i> No Threats</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- KPI Metrics Row -->
+                <div class="kpi-row">
+                    <div class="kpi-card">
+                        <div class="kpi-icon icon-blue"><i class="fa-solid fa-eye"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-num" id="kpiBlinkCount">0</span>
+                            <span class="kpi-name">Natural Blinks</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon icon-red"><i class="fa-solid fa-bed"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-num" id="kpiEyeClosedIncidents">0</span>
+                            <span class="kpi-name">Eyes Closed Alerts</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon icon-amber"><i class="fa-solid fa-hand"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-num" id="kpiFaceCoveredIncidents">0</span>
+                            <span class="kpi-name">Face Hidden Alerts</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon icon-purple"><i class="fa-solid fa-person-walking-arrow-right"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-num" id="kpiPersonAbsentIncidents">0</span>
+                            <span class="kpi-name">Person Absent Alerts</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Incident History Panel -->
+                <div class="history-panel">
+                    <div class="history-header">
+                        <div class="history-title">
+                            <i class="fa-solid fa-list-check"></i>
+                            <span>Detection Incident History</span>
+                            <span class="counter-badge" id="incidentCounterBadge">0 Total</span>
+                        </div>
+                        <div class="history-actions">
+                            <button id="btnExportCsv" class="btn btn-tiny" title="Export CSV">
+                                <i class="fa-solid fa-file-csv"></i> Export CSV
+                            </button>
+                            <button id="btnClearHistory" class="btn btn-tiny btn-danger" title="Clear Event Logs">
+                                <i class="fa-solid fa-trash-can"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="history-table" id="historyTable">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Timestamp</th>
+                                    <th>Incident Type</th>
+                                    <th>Severity</th>
+                                    <th>Duration</th>
+                                    <th>Description</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody">
+                                <tr class="empty-row">
+                                    <td colspan="6">
+                                        <div class="empty-state">
+                                            <i class="fa-regular fa-circle-check"></i>
+                                            <p>No abnormal detection incidents recorded yet. System monitoring normal.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <div class="footer-left">
+                <span>SentinelVision AI System v2.0 &bull; Local Neural Edge Processing</span>
+            </div>
+            <div class="footer-right">
+                <span class="secure-tag"><i class="fa-solid fa-lock"></i> 100% On-Device &bull; No Video Uploaded</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="modal-backdrop hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-sliders"></i> Monitoring & Alarm Settings</h2>
+                <button id="btnCloseSettings" class="btn-modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <h3><i class="fa-solid fa-eye"></i> Eye Closure Detection</h3>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label for="cfgEarThreshold">EAR Sensitivity Threshold</label>
+                            <p class="setting-desc">Eye Aspect Ratio threshold below which eyes are marked CLOSED.</p>
+                        </div>
+                        <div class="setting-control">
+                            <input type="range" id="cfgEarThreshold" min="0.15" max="0.35" step="0.01" value="0.22">
+                            <span class="value-display" id="valEarThreshold">0.22</span>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label for="cfgEyeClosedDuration">Eyes Closed Duration Threshold</label>
+                            <p class="setting-desc">Duration (seconds) eyes must remain closed before triggering alarm.</p>
+                        </div>
+                        <div class="setting-control">
+                            <input type="range" id="cfgEyeClosedDuration" min="0.5" max="5.0" step="0.1" value="1.0">
+                            <span class="value-display" id="valEyeClosedDuration">1.0s</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <h3><i class="fa-solid fa-user-shield"></i> Face & Presence Detection</h3>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label for="cfgFaceHiddenDuration">Face Hidden / Covered Threshold</label>
+                            <p class="setting-desc">Duration (seconds) face is obstructed before triggering alarm.</p>
+                        </div>
+                        <div class="setting-control">
+                            <input type="range" id="cfgFaceHiddenDuration" min="0.5" max="5.0" step="0.1" value="1.0">
+                            <span class="value-display" id="valFaceHiddenDuration">1.0s</span>
+                        </div>
+                    </div>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label for="cfgPersonAbsentDuration">Person Absence Timeout</label>
+                            <p class="setting-desc">Duration (seconds) with no person visible before triggering alarm.</p>
+                        </div>
+                        <div class="setting-control">
+                            <input type="range" id="cfgPersonAbsentDuration" min="0.5" max="10.0" step="0.5" value="1.0">
+                            <span class="value-display" id="valPersonAbsentDuration">1.0s</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <h3><i class="fa-solid fa-volume-high"></i> Audio & Alarm Response</h3>
+                    <div class="setting-item">
+                        <div class="setting-info">
+                            <label for="cfgAlarmVolume">Alarm Volume</label>
+                            <p class="setting-desc">Audio volume level for audible alarms.</p>
+                        </div>
+                        <div class="setting-control">
+                            <input type="range" id="cfgAlarmVolume" min="0" max="100" step="5" value="85">
+                            <span class="value-display" id="valAlarmVolume">85%</span>
+                        </div>
+                    </div>
+                    <div class="setting-item-toggle">
+                        <div class="setting-info">
+                            <label for="cfgAlarmEnabled">Enable Audible Alarms</label>
+                            <p class="setting-desc">Plays audible siren upon detecting abnormal conditions.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="cfgAlarmEnabled" checked>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                    <div class="setting-item-toggle">
+                        <div class="setting-info">
+                            <label for="cfgAutoSilence">Auto-Silence on Recovery</label>
+                            <p class="setting-desc">Automatically cease alarm audio when normal conditions resume.</p>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="cfgAutoSilence" checked>
+                            <span class="slider round"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btnResetSettings" class="btn btn-secondary">Restore Defaults</button>
+                <button id="btnSaveSettings" class="btn btn-primary">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script src="./static/js/app.js?v=2.2"></script>
+</body>
+</html>
